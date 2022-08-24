@@ -1,0 +1,198 @@
+/*
+
+Covid 19 Data Exploration 
+
+Skills used: Joins, CTE's, Temp Tables, Windows Functions, Aggregate Functions, Creating Views, Converting Data Types
+
+*/
+
+
+
+SELECT * FROM exp.covid_d
+order by 3,4;
+select count(*) from covid_d;
+select * from covid_v
+order by 3,4;
+select count(*) from covid_v;
+SELECT location,date,total_cases,new_cases,total_deaths,population FROM exp.covid_d
+order by 1,2;
+
+#getting death percentage
+select location,date,total_cases,total_deaths,round((total_deaths/total_cases)*100,1) as death_percentage
+from covid_d
+order by 1,2;
+
+#death percentage of coutry India
+select location,date,total_cases,total_deaths,round((total_deaths/total_cases)*100,1) as death_percentage
+from covid_d
+where location like 'India'
+order by 1,2 desc;
+
+# the percentage of population got covid
+  
+select location,date,total_cases,population,round((total_cases/population)*100,5) as covid_percentage
+from covid_d
+order by 1,2 desc; 
+
+#covid based on max of all location
+
+select location,max(date),max(total_cases),max(population),max(round((total_cases/population)*100,5)) as covid_percentage
+from covid_d
+group by location
+order by 1,2;
+ 
+ #based on India no of percentage affected
+select location,date,total_cases,population,round((total_cases/population)*100,5) as covid_percentage
+from covid_d
+where location like 'India'
+order by 1,2 desc; 
+ 
+ #selecting the rows where continent is not null
+Select *
+From covid_d
+Where continent is not null 
+order by 3,4;
+
+Select count(*)
+From covid_d
+Where continent is not null;
+
+-- Select Data that we are going to be starting with
+
+Select Location, date, total_cases, new_cases, total_deaths, population
+From covid_d
+Where continent is not null 
+order by 1,2 ;
+
+-- Total Cases vs Total Deaths
+-- Shows likelihood percentage of death covid in country
+
+Select Location, date, total_cases,total_deaths, (total_deaths/total_cases)*100 as DeathPercentage
+from covid_d
+Where location like 'India'
+and continent is not null 
+order by 1,2;
+
+-- Total Cases vs Population
+-- Shows what percentage of population infected with Covid
+
+Select Location, date, Population, total_cases,  (total_cases/population)*100 as PercentPopulationInfected
+From covid_d
+order by 1,2;
+
+#based on country
+
+Select Location, date, Population, total_cases,  (total_cases/population)*100 as PercentPopulationInfected
+From covid_d
+Where location like 'India'
+order by 1,2;
+
+#Countries with Highest covid Rate compared to Population
+
+Select continent,Location, Population, max(total_cases) as HighestcovidCount,  max((total_cases/population))*100 as PercentPopulationInfected
+From covid_d
+Group by continent,Location, Population
+order by PercentPopulationInfected desc;
+
+#based on country
+Select Location, Population, max(total_cases) as HighestcovidCount,  max((total_cases/population))*100 as PercentPopulationInfected
+From covid_d
+Where location like 'India'
+Group by Location, Population
+order by PercentPopulationInfected desc;
+
+-- Countries with Highest Death Count per Population
+
+Select Location, max(Total_deaths) as TotalDeathCount
+From covid_d
+Where continent is not null 
+Group by Location
+order by TotalDeathCount desc;
+
+describe covid_d;
+
+-- Countries with Highest Death Count per Population
+
+Select Location,max(total_deaths) as TotalDeathCount
+From covid_d
+-- Where continent is not null 
+Group by Location
+order by TotalDeathCount desc;
+
+
+Select Location,max(total_deaths) 
+From covid_d
+Where continent is not null; 
+
+-- BREAKING THINGS DOWN BY CONTINENT
+
+-- Showing contintents with the highest death count per population
+
+Select continent, max(Total_deaths) as TotalDeathCount
+From covid_d
+Where continent is not null 
+Group by continent
+order by TotalDeathCount desc;
+
+
+-- GLOBAL NUMBERS
+
+Select sum(new_cases) as total_cases, sum(new_deaths) as total_deaths, sum(new_deaths)/sum(New_Cases)*100 as DeathPercentage
+From covid_d
+where continent is not null 
+-- Group By date
+order by 1,2;
+
+-- based on country
+
+Select sum(new_cases) as total_cases, sum(new_deaths) as total_deaths, sum(new_deaths)/sum(New_Cases)*100 as DeathPercentage
+From covid_d
+Where location like 'India' and continent is not null 
+order by 1,2;
+
+describe covid_v;
+
+-- Total Population vs Vaccinations
+-- Shows Percentage of Population that has recieved at least one Covid Vaccine
+
+Select d.continent, d.location, d.date, d.population, v.new_vaccinations
+, sum(v.new_vaccinations) OVER (Partition by d.Location Order by d.location, d.Date) as RollingPeopleVaccinated
+-- (RollingPeopleVaccinated/population)*100 as percentagevaccine
+From covid_d d
+Join covid_v v
+	On d.location = v.location
+	and d.date = v.date
+where d.continent is not null 
+order by 2,3;
+
+-- Using CTE to perform Calculation on Partition By in previous query
+
+With PopvsVac (Continent, Location, Date, Population, New_Vaccinations, RollingPeopleVaccinated)
+as
+(
+Select d.continent, d.location, d.date, d.population, v.new_vaccinations
+, sum(v.new_vaccinations) OVER (Partition by d.Location Order by d.location, d.Date) as RollingPeopleVaccinated
+-- (RollingPeopleVaccinated/population)*100
+From covid_d d
+Join covid_v v
+	On d.location = v.location
+	and d.date = v.date
+where d.continent is not null 
+order by 2,3
+)
+Select *, (RollingPeopleVaccinated/Population)*100
+From PopvsVac;
+
+
+-- Creating View to store data for later visualizations
+
+Create View PercentPopulationVaccinated as
+Select d.continent, d.location, d.date, d.population, v.new_vaccinations
+, sum(v.new_vaccinations) OVER (Partition by d.Location Order by d.location, d.Date) as RollingPeopleVaccinated
+From covid_d d
+Join covid_v v
+	On d.location = v.location
+	and d.date = v.date
+where d.continent is not null;
+
+select * from PercentPopulationVaccinated;
